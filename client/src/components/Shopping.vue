@@ -5,14 +5,20 @@ import AppButton from "../components/AppButton.vue";
 import ShoppingModal from "../components/ShoppingModal.vue";
 
 const showModal = ref(false);
-const state = reactive({
-  shopping: [],
-});
 
 const props = defineProps({
   editable: {
     type: Boolean,
     default: false,
+  },
+  shopping: {
+    type: Array,
+    default: false,
+    required: true,
+  },
+  addShoppingData: {
+    type: Function,
+    required: true,
   },
 });
 
@@ -22,11 +28,6 @@ function openModal() {
 
 function closeModal() {
   showModal.value = false;
-}
-
-function addShoppingData(data) {
-  console.log(data);
-  state.shopping.push(data);
 }
 </script>
 <template>
@@ -43,7 +44,7 @@ function addShoppingData(data) {
       <ShoppingModal
         v-if="props.editable && showModal"
         :closeModal="closeModal"
-        :addShoppingData="addShoppingData"
+        :addShoppingData="props.addShoppingData"
       />
     </div>
     <table class="shopping-table">
@@ -56,12 +57,12 @@ function addShoppingData(data) {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="item in state.shopping" v-bind:key="item?.id">
-          <td>{{ item.date }}</td>
-          <td>{{ item.item }}</td>
-          <td>{{ item.person }}</td>
+        <tr v-for="item in props.shopping" v-bind:key="item?.id">
+          <td>{{ item.Date }}</td>
+          <td>{{ item.Item }}</td>
+          <td>{{ item.Person }}</td>
           <td>
-            <input type="checkbox" v-model="item.confirmed" />
+            <input type="checkbox" v-model="item.Confirmed" />
           </td>
         </tr>
       </tbody>

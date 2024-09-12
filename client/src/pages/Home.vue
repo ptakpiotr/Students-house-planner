@@ -3,6 +3,7 @@ import AppButton from "../components/AppButton.vue";
 import PageTitle from "../components/PageTitle.vue";
 import { onMounted, reactive, ref } from "vue";
 import { Navigation } from "lucide-vue-next";
+import axios from "axios";
 import { router } from "../router";
 
 const state = reactive({
@@ -11,20 +12,9 @@ const state = reactive({
 const selectedValue = ref(null);
 
 onMounted(async () => {
-  state.months = [
-    {
-      label: "January",
-      code: "2024_1",
-    },
-    {
-      label: "February",
-      code: "2024_2",
-    },
-    {
-      label: "September",
-      code: "2024_9",
-    },
-  ];
+  const resp = await axios.get("/api/months", { withCredentials: true });
+  const data = resp.data;
+  state.months = data;
 });
 
 function goToMonth() {
