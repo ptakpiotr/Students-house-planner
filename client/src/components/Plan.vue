@@ -35,7 +35,7 @@ async function addShoppingData(data) {
       Item: data.item,
       MonthId: state.monthData.Id,
       Confirmed: false,
-      Date: new Date(data.confirmed),
+      Date: new Date(data.date),
     };
 
     await axios.post(`/api/shopping`, item, {

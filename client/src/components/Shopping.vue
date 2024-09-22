@@ -1,6 +1,6 @@
 <script setup>
 import { PlusCircle } from "lucide-vue-next";
-import { reactive, ref } from "vue";
+import { ref } from "vue";
 import AppButton from "../components/AppButton.vue";
 import ShoppingModal from "../components/ShoppingModal.vue";
 
@@ -60,7 +60,7 @@ function closeModal() {
         <tr v-for="item in props.shopping" v-bind:key="item?.id">
           <td>{{ item.Date }}</td>
           <td>{{ item.Item }}</td>
-          <td>{{ item.Person }}</td>
+          <td>{{ item.Person?.Login ?? "" }}</td>
           <td>
             <input type="checkbox" v-model="item.Confirmed" />
           </td>

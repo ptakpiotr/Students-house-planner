@@ -10,6 +10,7 @@ using Server.Services;
 using System.Globalization;
 using System.Security.Claims;
 using System.Text.Json;
+using EditBathroom = Server.Models.EditKitchen;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,6 +54,11 @@ builder.Services.AddAuthentication()
                 await dbContext.SaveChangesAsync().ConfigureAwait(false);
             }
 
+            ctx.Response.Cookies.Append("user-login", userInfo["login"].ToString(), new()
+            {
+                HttpOnly = false
+            });
+
             ctx.Success();
         };
     });
@@ -82,11 +88,6 @@ builder.Services.AddHangfireServer();
 
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
-
-//builder.Services.ConfigureHttpJsonOptions((opts) =>
-//{
-//    opts.SerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-//});
 
 var app = builder.Build();
 
@@ -125,6 +126,14 @@ apiGroup.MapGet("/month/{key}", async ([FromRoute] string key, [FromServices] Ap
     int.TryParse(splitValue[1], out int month);
 
     var res = await ctx.Months.Include(x => x.ShoppingEntries).Include(x => x.BathroomEntries).Include(x => x.KitchenEntries).FirstOrDefaultAsync(m => m.Month == month && m.Year == year);
+
+    if (res is not null)
+    {
+        await MapKitchenUsers(ctx, res).ConfigureAwait(false);
+        await MapBathroomUsers(ctx, res).ConfigureAwait(false);
+        await MapShoppingUsers(ctx, res).ConfigureAwait(false);
+    }
+
     var dt = JsonSerializer.Serialize(res, new JsonSerializerOptions() { ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles });
     return Results.Ok(JsonSerializer.Deserialize<dynamic>(dt));
 });
@@ -156,6 +165,60 @@ apiGroup.MapPost("/shopping", async (ShoppingEntryCreate entry, [FromServices] A
     return Results.NoContent();
 }).RequireAuthorization(AppConstants.Authz.AppPolicy);
 
+apiGroup.MapPost("/kitchen/{month}", async (string month, [FromBody] EditKitchen kitchen, [FromServices] AppDbContext ctx) =>
+{
+    string[] splitValue = month.Split("_");
+    int.TryParse(splitValue[0], out int year);
+    int.TryParse(splitValue[1], out int monthNumber);
+
+    MonthModel? monthData = await ctx.Months
+        .Include(m => m.KitchenEntries)
+        .FirstOrDefaultAsync(m => m.Year == year && m.Month == monthNumber)
+        .ConfigureAwait(false);
+
+    if (monthData is null)
+    {
+        return Results.BadRequest();
+    }
+
+    for (int i = 0; i < monthData.KitchenEntries.Count; i++)
+    {
+        AppUser? usr = await ctx.Users.FirstOrDefaultAsync(u => u.Login == kitchen.Weeks[i]).ConfigureAwait(false);
+        monthData.KitchenEntries[i].User = usr;
+        monthData.KitchenEntries[i].UserId = usr?.Id;
+    }
+
+    await ctx.SaveChangesAsync().ConfigureAwait(false);
+    return Results.Created();
+});
+
+apiGroup.MapPost("/bathroom/{month}", async (string month, [FromBody] EditBathroom bathroom, [FromServices] AppDbContext ctx) =>
+{
+    string[] splitValue = month.Split("_");
+    int.TryParse(splitValue[0], out int year);
+    int.TryParse(splitValue[1], out int monthNumber);
+
+    MonthModel? monthData = await ctx.Months
+        .Include(m => m.BathroomEntries)
+        .FirstOrDefaultAsync(m => m.Year == year && m.Month == monthNumber)
+        .ConfigureAwait(false);
+
+    if (monthData is null)
+    {
+        return Results.BadRequest();
+    }
+
+    for (int i = 0; i < monthData.BathroomEntries.Count; i++)
+    {
+        AppUser? usr = await ctx.Users.FirstOrDefaultAsync(u => u.Login == bathroom.Weeks[i]).ConfigureAwait(false);
+        monthData.BathroomEntries[i].User = usr;
+        monthData.BathroomEntries[i].UserId = usr?.Id;
+    }
+
+    await ctx.SaveChangesAsync().ConfigureAwait(false);
+    return Results.Created();
+});
+
 apiGroup.MapGet("/logout", () =>
 {
     return Results.SignOut(new()
@@ -176,3 +239,33 @@ app.MapHangfireDashboard();
 app.MapReverseProxy();
 
 app.Run();
+
+static async Task MapKitchenUsers(AppDbContext ctx, MonthModel? res)
+{
+    ArgumentNullException.ThrowIfNull(ctx);
+
+    foreach (var k in res!.KitchenEntries)
+    {
+        k.User = await ctx.Users.FirstOrDefaultAsync(u => u.Id == k.UserId).ConfigureAwait(false);
+    }
+}
+
+static async Task MapBathroomUsers(AppDbContext ctx, MonthModel? res)
+{
+    ArgumentNullException.ThrowIfNull(ctx);
+
+    foreach (var b in res!.BathroomEntries)
+    {
+        b.User = await ctx.Users.FirstOrDefaultAsync(u => u.Id == b.UserId).ConfigureAwait(false);
+    }
+}
+
+static async Task MapShoppingUsers(AppDbContext ctx, MonthModel? res)
+{
+    ArgumentNullException.ThrowIfNull(ctx);
+
+    foreach (var s in res!.ShoppingEntries)
+    {
+        s.Person = await ctx.Users.FirstOrDefaultAsync(u => u.Id == s.PersonId).ConfigureAwait(false) ?? new();
+    }
+}

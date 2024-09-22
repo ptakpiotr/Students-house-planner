@@ -1,6 +1,7 @@
 <script setup>
 import { reactive } from "vue";
 import { Lock } from "lucide-vue-next";
+import axios from "axios";
 
 const props = defineProps({
   editable: {
@@ -13,15 +14,24 @@ const state = reactive({
   weeks: [null, null, null, null],
 });
 
-const userId = "USER_ABC";
+const userId = document.cookie.split("=")[1];
 
-function clickWeek(idx) {
+async function clickWeek(idx) {
   if (props.editable) {
     if (state.weeks[idx] === userId) {
       state.weeks[idx] = null;
     } else if (!Object.values(state.weeks).includes(userId)) {
       state.weeks[idx] = userId;
     }
+    const urlSplit = window.location.href.split("/");
+    const month = urlSplit[urlSplit.length - 1];
+
+    await axios.post(`/api/kitchen/${month}`, state, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      withCredentials: true,
+    });
   }
 }
 </script>
